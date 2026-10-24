@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace ExtensionInstaller;
@@ -125,8 +124,12 @@ internal class Program
             }
 
             if (restart) {
-                var tunelabExeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "TuneLab.exe" : "TuneLab";
-                Process.Start(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, tunelabExeName));
+                var bundledExecutableFolder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "MacOS"));
+                var executableFolder = OperatingSystem.IsMacOS() && File.Exists(Path.Combine(bundledExecutableFolder, "TuneLab"))
+                    ? bundledExecutableFolder
+                    : AppDomain.CurrentDomain.BaseDirectory;
+                var tunelabExeName = OperatingSystem.IsWindows() ? "TuneLab.exe" : "TuneLab";
+                Process.Start(Path.Combine(executableFolder, tunelabExeName));
             }
         }
         catch (Exception ex)

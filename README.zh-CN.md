@@ -5,12 +5,13 @@ TuneLab 是一款可扩展的歌声合成编辑器。
 
 它通过扩展支持多种合成引擎、多种工程格式与效果器。TuneLab 还内置脚本与 AI Agent，并已完整本地化为多种语言。
 ## 下载与安装
-到 [Releases 页](https://github.com/LiuYunPlayer/TuneLab/releases/latest)下载最新版本。目前发布只提供 Windows x64；其他平台请自行从源码构建。
+到 [Releases 页](https://github.com/LiuYunPlayer/TuneLab/releases/latest)下载最新版本。当前发布提供 Windows x64；Apple 芯片 Mac 实验 ZIP 正在开发中。
 
 - **安装器** - `TuneLab-Setup-win-x64-v<版本号>.exe`。装到当前用户的 `%LocalAppData%\Programs\TuneLab`（无需管理员），可选关联 `.tlpx` / `.tlp` / `.tlx` 文件类型，并注册卸载项。装好的版本可以就地自我更新。
 - **免安装包** - `TuneLab-win-x64-v<版本号>.zip`。解压到任意目录，运行 `TuneLab.exe` 即可。不往文件夹外写东西，也不关联文件类型、不自我更新。
+- **计划中的 macOS Apple 芯片实验包** - 首个 `TuneLab-osx-arm64-v<版本号>.zip` 目标为 macOS 26 及以上，内置 .NET 运行时，解压后需将 `TuneLab.app` 拖入“应用程序”文件夹。包内原生库有 ad hoc 签名，但整个应用包尚未通过签名校验，也没有 Developer ID 签名或公证；首发不支持 Intel Mac。
 
-两者都是框架依赖构建，需要 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0)（x64）；没装的机器首次启动会被引导到微软的下载页。
+两个 Windows 包都是框架依赖构建，需要 [.NET 8 桌面运行时](https://dotnet.microsoft.com/download/dotnet/8.0)（x64）；没装的机器首次启动会被引导到微软的下载页。
 
 二进制未做代码签名，首次启动 Windows 可能弹出 SmartScreen 提示（"Windows 已保护你的电脑"）。点**更多信息** -> **仍要运行**即可继续。
 ## 用户手册

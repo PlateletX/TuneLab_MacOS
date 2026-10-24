@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using SDL2;
+using TuneLab.Foundation;
 
 namespace TuneLab.Audio.SDL2;
 
@@ -283,8 +284,20 @@ internal class SDLPlaybackHandler : IAudioPlaybackHandler
         // 如果没有打开音频设备那么打开默认音频设备
         if (_d.devId == 0)
         {
-            CurrentDevice = AutoDeviceName;
+            try
+            {
+                CurrentDevice = AutoDeviceName;
+            }
+            catch (Exception ex)
+            {
+                // 没有可用输出设备时保持引擎可启动，等设备重新接入后再恢复。
+                Log.Warning("SDL: failed to open the default audio device: " + ex.Message);
+                return;
+            }
         }
+
+        if (_d.devId == 0)
+            return;
 
         _d.Start();
     }

@@ -73,6 +73,12 @@ internal class NAudioCodec : IAudioCodec
 
     static void EncodeToMp3(string path, float[] buffer, int sampleRate, int channelCount, int bitrate)
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            MacOSMp3Encoder.Encode(path, buffer, sampleRate, channelCount, bitrate);
+            return;
+        }
+
         var waveFormat = new WaveFormat(sampleRate, 16, channelCount);
         var bytes = To16BitsBytes(buffer);
         using var writer = new LameMP3FileWriter(path, waveFormat, bitrate);

@@ -39,9 +39,10 @@ The following typefaces are embedded in the shipped assemblies.
 2. GNU Lesser General Public License (LGPL)
 ==============================================================================
 
-  LAME (libmp3lame.32.dll, libmp3lame.64.dll)      LGPL-2.1-or-later
-    The LAME Project. Used for MP3 encoding on export; bundled by the
-    NAudio.Lame package (whose own C# wrapper code is MIT, see section 7).
+  LAME (libmp3lame.32.dll, libmp3lame.64.dll, libmp3lame.dylib)  LGPL-2.1-or-later
+    The LAME Project. Used for MP3 encoding on export; bundled by NAudio.Lame
+    on Windows and by the macOS packaging workflow. NAudio.Lame's C# wrapper
+    code is MIT, see section 7.
     https://lame.sourceforge.io/
 
   CUETools.Codecs 1.0.2                            LGPL-3.0
@@ -124,7 +125,7 @@ BSD 2-Clause
 6. zlib License
 ==============================================================================
 
-  SDL2 (SDL2.dll)
+  SDL2 (SDL2.dll, libSDL2.dylib)
     Copyright (c) Sam Lantinga
     https://www.libsdl.org/
 
@@ -147,6 +148,13 @@ UI framework and rendering
 
   Avalonia.AvaloniaEdit 11.2.0 (AvaloniaEdit.dll)
     Copyright (c) The Avalonia Project and the AvalonEdit authors
+
+Native audio plugin hosting
+
+  Steinberg VST3 SDK 3.8.1 (hosting sources linked into libTuneLabVst3Host.dylib)
+    Copyright (c) 2026 Steinberg Media Technologies GmbH
+    https://github.com/steinbergmedia/vst3sdk
+    Distributed under the MIT License; see section 9.1.
 
   MicroCom.Runtime 0.11.0
     Copyright (c) The Avalonia Project

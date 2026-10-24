@@ -721,6 +721,26 @@ internal sealed class ProjectExportAudioCommand : ICommand
                 ["silent"] = SynthesisWaitSupport.Flaws(facts.Silent),
             });
 
+        var audioParts = await ctx.OnMainThread(() => project.Tracks
+            .SelectMany(track => track.Parts).OfType<AudioPart>().ToArray());
+        try
+        {
+            var loads = await ctx.OnMainThread(() => audioParts.Select(part => part.WaitForLoadAsync()).ToArray());
+            await Task.WhenAll(loads).WaitAsync(TimeSpan.FromSeconds(timeoutSeconds), cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            return CommandResult.Fail("audio_load_timeout", "audio files are still loading; nothing was written.");
+        }
+        catch (OperationCanceledException)
+        {
+            return CommandResult.Fail("cancelled", "cancelled while waiting for audio files; nothing was written.");
+        }
+
+        var unlinked = await ctx.OnMainThread(() => audioParts.FirstOrDefault(part => part.Status.Value != AudioPartStatus.Linked));
+        if (unlinked != null)
+            return CommandResult.Fail("audio_unlinked", $"could not load audio file \"{unlinked.Path.Value}\"; nothing was written.");
+
         // 时长取整个混音的长度（与界面上按导出键得到的同一口径：AudioGraph 的末端，自带一秒尾）。
         double duration = await ctx.OnMainThread(() => AudioEngine.EndTime);
 

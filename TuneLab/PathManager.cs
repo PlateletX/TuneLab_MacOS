@@ -37,7 +37,40 @@ internal static class PathManager
     public static string LockFilePath => Path.Combine(TuneLabFolder, "TuneLab.lock");
     public static string LogFilePath { get { mLogFilePath ??= Path.Combine(LogsFolder, "TuneLab_" + DateTime.Now.ToString("yyyy-MM-dd_hh-mm-ss") + ".log"); return mLogFilePath; } }
     public static string ExcutableFolder => AppDomain.CurrentDomain.BaseDirectory;
-    public static string ResourcesFolder => Path.Combine(ExcutableFolder, "Resources");
+    public static string HelpersFolder
+    {
+        get
+        {
+            var bundledHelpers = Path.GetFullPath(Path.Combine(ExcutableFolder, "..", "Helpers"));
+            return OperatingSystem.IsMacOS() && Directory.Exists(bundledHelpers)
+                ? bundledHelpers
+                : ExcutableFolder;
+        }
+    }
+    public static string CliPath => GetHelperExecutablePath("TuneLab.Cli");
+    public static string ExtensionInstallerPath => GetHelperExecutablePath("ExtensionInstaller");
+    static string GetHelperExecutablePath(string helperName)
+    {
+        var bundledHelperFolder = Path.Combine(HelpersFolder, helperName);
+        var helperFolder = OperatingSystem.IsMacOS() && Directory.Exists(bundledHelperFolder)
+            ? bundledHelperFolder
+            : HelpersFolder;
+        var executableName = OperatingSystem.IsWindows() ? helperName + ".exe" : helperName;
+        return Path.Combine(helperFolder, executableName);
+    }
+    public static string ResourcesFolder
+    {
+        get
+        {
+            var localResources = Path.Combine(ExcutableFolder, "Resources");
+            if (Directory.Exists(Path.Combine(localResources, "Translations")))
+                return localResources;
+
+            return OperatingSystem.IsMacOS()
+                ? Path.GetFullPath(Path.Combine(ExcutableFolder, "..", "MacOS", "Resources"))
+                : localResources;
+        }
+    }
     public static string TranslationsFolder => Path.Combine(ResourcesFolder, "Translations");
     public static string ScriptDocFolder => Path.Combine(ResourcesFolder, "ScriptDoc");
     // 用户手册（随包发布的 docs/user-manual.*.md 与其插图），按文化码取文件，见 ManualLibrary。

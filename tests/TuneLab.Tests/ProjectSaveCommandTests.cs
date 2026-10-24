@@ -67,6 +67,8 @@ public class ProjectSaveCommandTests
             new CommandContext { ProjectFile = file, Authorization = policy ?? new AutoPolicy() }, CancellationToken.None)
             .GetAwaiter().GetResult();
 
+    static string PathJson(string path) => new JsonObject { ["path"] = path }.ToJsonString();
+
     // ── 三种走不通，各说各的话
 
     // headless 没有"用户打开着的文档"这个东西——不能含糊成"保存失败"，得指向那里真正该用的 export。
@@ -118,7 +120,8 @@ public class ProjectSaveCommandTests
         var empty = Run(new ProjectSaveAsCommand(), """{"path": "  "}""", file);
         Assert.Equal("empty_path", empty.Error!.Value.Code);
 
-        var missing = Run(new ProjectSaveAsCommand(), """{"path": "C:\\no\\such\\folder\\a.tlpx"}""", file);
+        var missingPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TuneLab.Missing." + Guid.NewGuid().ToString("N"), "a.tlpx");
+        var missing = Run(new ProjectSaveAsCommand(), PathJson(missingPath), file);
         Assert.Equal("missing_folder", missing.Error!.Value.Code);
         Assert.Contains("Create it first", missing.Error!.Value.Message);
         Assert.Equal(0, file.Saves);
@@ -144,11 +147,12 @@ public class ProjectSaveCommandTests
     public void SaveAsMovesWhereTheProjectLivesAndSaysThat()
     {
         var file = new StubProjectFile { HasSaveTarget = true, IsSaved = false, Path = @"C:\songs\a.tlpx" };
-        var result = Run(new ProjectSaveAsCommand(), """{"path": "C:\\Windows\\Temp\\b.tlpx"}""", file);
+        var targetPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TuneLab.SaveAs." + Guid.NewGuid().ToString("N") + ".tlpx");
+        var result = Run(new ProjectSaveAsCommand(), PathJson(targetPath), file);
 
         Assert.False(result.IsError, result.Error?.Message);
         Assert.Equal(1, file.Saves);
-        Assert.Equal(@"C:\Windows\Temp\b.tlpx", file.SavedTo);
+        Assert.Equal(targetPath, file.SavedTo);
         Assert.Contains("From now on that is the file it saves to",
             new ProjectSaveAsCommand().Render(result.Data, CommandArgs.Empty));
     }
@@ -178,7 +182,7 @@ public class ProjectSaveCommandTests
         Assert.Contains("overwriting what is in that file", policy.Asked!.Value.ActionPhrase());
 
         var asNew = new RecordingPolicy();
-        Run(new ProjectSaveAsCommand(), """{"path": "C:\\Windows\\Temp\\brand-new-name.tlpx"}""",
+        Run(new ProjectSaveAsCommand(), PathJson(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "brand-new-name." + Guid.NewGuid().ToString("N") + ".tlpx")),
             new StubProjectFile { HasSaveTarget = true, Path = @"C:\songs\a.tlpx" }, asNew);
         Assert.Equal(WriteKind.ProjectSaveAs, asNew.Asked!.Value.Kind);
         Assert.Contains("from then on that is the file", asNew.Asked!.Value.ActionPhrase());

@@ -13,7 +13,7 @@
 		<!-- 安装器只面向 Windows。框架依赖：与主程序发布模型一致，不打包 .NET 运行时，
 		     体积小、更新不重下运行时。裸机双击时 apphost 会自动弹微软官方的 .NET 下载提示。
 		     保留 win-x64 RID 以生成原生 apphost（.exe）。 -->
-		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</RuntimeIdentifier>
 		<SelfContained>false</SelfContained>
 	</PropertyGroup>
 

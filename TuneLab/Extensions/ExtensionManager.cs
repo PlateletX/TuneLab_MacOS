@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using TuneLab.Foundation;
 using TuneLab.I18N;
@@ -659,16 +658,12 @@ internal static class ExtensionManager
         if (mPendingUninstalls.Count == 0)
             return;
 
-        string installer = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "ExtensionInstaller.exe"
-            : "ExtensionInstaller";
-        var installerPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, installer);
         List<string> args = [];
         if (RestartAfterUninstall)
             args.Add("-restart");
         args.Add("-uninstall");
         args.AddRange(mPendingUninstalls);
-        ProcessHelper.CreateProcess(installerPath, args);
+        ProcessHelper.CreateProcess(PathManager.ExtensionInstallerPath, args);
         mPendingUninstalls.Clear();
     }
 

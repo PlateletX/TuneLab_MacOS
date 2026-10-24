@@ -104,7 +104,22 @@ internal class AudioPart : Part, IAudioPart
         return mAudioData == null ? 0 : Math.Min(base.SampleCount(), Math.Max(0, mAudioData.Count - HeadSkipSamples()));
     }
 
-    public async void Reload()
+    public void Reload()
+    {
+        mLoadTask = LoadAsync();
+    }
+
+    internal async Task WaitForLoadAsync()
+    {
+        Task load;
+        do
+        {
+            load = mLoadTask;
+            await load;
+        } while (!ReferenceEquals(load, mLoadTask));
+    }
+
+    private async Task LoadAsync()
     {
         // Cancel any in-progress load (Reload is only called on the main thread,
         // so access to mLoadCancelTokenSource is safe without locking)
@@ -199,6 +214,7 @@ internal class AudioPart : Part, IAudioPart
         Status.Value = AudioPartStatus.Linked;
     }
     CancellationTokenSource? mLoadCancelTokenSource = null;
+    Task mLoadTask = Task.CompletedTask;
 
     protected override int SampleRate => AudioEngine.SampleRate.Value;
     public int ChannelCount => mWaveforms.Length;

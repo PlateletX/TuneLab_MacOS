@@ -23,15 +23,14 @@ namespace TuneLab.UI;
 // 三种情形。这段文案是主动快照，命令行的消息是被动兜底，两层各司其职；抄一遍只会有一天与它对不上。
 internal static class ExternalAgentOnboarding
 {
-    // 命令行可执行文件名（与主程序同目录）。
-    static string ExecutableName => OperatingSystem.IsWindows() ? "TuneLab.Cli.exe" : "TuneLab.Cli";
+    // macOS app bundle 按工具分目录；其他平台仍从 HelpersFolder 平铺查找。
 
     /// <summary>命令行的绝对路径；这份安装里没有它就返回 null。</summary>
     public static string? ExecutablePath
     {
         get
         {
-            var path = Path.Combine(PathManager.ExcutableFolder, ExecutableName);
+            var path = PathManager.CliPath;
             return File.Exists(path) ? path : null;
         }
     }
@@ -47,8 +46,9 @@ internal static class ExternalAgentOnboarding
         {
             // 便携产物里理论上不该缺，但缺了就必须说清——给一条不存在的路径，那个 agent 会拿它试到放弃。
             sb.AppendLine("TuneLab is a singing voice synthesis editor running on this machine, but THIS install has no command line");
-            sb.AppendLine("next to it (" + Path.Combine(PathManager.ExcutableFolder, ExecutableName) + " is missing), so you cannot drive it from a terminal.");
-            sb.AppendLine("Reinstall TuneLab with its installer if you need that.");
+            sb.AppendLine("(" + PathManager.CliPath
+                + " is missing), so you cannot drive it from a terminal.");
+            sb.AppendLine("Reinstall TuneLab if you need that.");
             return sb.ToString();
         }
 

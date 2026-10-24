@@ -5,10 +5,8 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using TuneLab.Extensions;
 using TuneLab.SDK;
@@ -444,12 +442,7 @@ internal class ExtensionSideBarContentProvider : ISideBarContentProvider
         try
         {
             PathManager.MakeSureExist(PathManager.ExtensionsFolder);
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                Process.Start("explorer.exe", PathManager.ExtensionsFolder);
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                Process.Start("open", PathManager.ExtensionsFolder);
-            else
-                Process.Start("xdg-open", PathManager.ExtensionsFolder);
+            ProcessHelper.OpenFile(PathManager.ExtensionsFolder);
         }
         catch { }
     }

@@ -57,6 +57,7 @@ public partial class App : Application
                 };
 
                 // init audio engine
+                MacOSNativeLibraryResolver.Register();
                 AudioUtils.Init(new NAudioCodec());
                 AudioEngine.SampleRate.Value = Settings.SampleRate;
                 AudioEngine.BufferSize.Value = Settings.BufferSize;

@@ -28,6 +28,10 @@ internal static class FormatsManager
         // 早年扩展名靠代码 attribute 标注、一个类只能标一个后缀，才不得不造 MidiWithExtension_mid/_midi
         // 那样的双胞胎类；V1 起后缀由 manifest（内建则由此处）给出，那个约束早已不存在。
         RegisterBuiltIn(pkg, ["mid", "midi"], "MIDI", () => new Midi.MidiFormat(), () => new Midi.MidiFormat());
+        RegisterFormat(pkg, KindBoth, ["vsqx"], "VOCALOID4 VSQX",
+            (["vsqx"], () => new Vsqx.VsqxFormat()), (["vsqx"], () => new Vsqx.VsqxFormat()), false);
+        RegisterFormat(pkg, KindBoth, ["vpr"], "VOCALOID5/6 VPR",
+            (["vpr"], () => new Vpr.VprFormat()), (["vpr"], () => new Vpr.VprFormat()), false);
     }
 
     // 内建格式一律是双向紧凑形态（同一个类读写），且都没有扩展设置。
@@ -188,7 +192,7 @@ internal static class FormatsManager
 
             var stream = File.OpenRead(filePath);
             IImportFormat importFormat = provider.ImportFactory.Invoke();
-            projectInfo = importFormat.Deserialize(stream);
+            projectInfo = DeserializeImport(importFormat, stream, filePath);
             return true;
         }
         catch (Exception e)
@@ -251,7 +255,7 @@ internal static class FormatsManager
             IImportFormat importFormat = provider.ImportFactory.Invoke();
             file = importFormat is INativeProjectFormat native
                 ? native.DeserializeNative(stream)
-                : new NativeProjectFile { Project = importFormat.Deserialize(stream) };
+                : new NativeProjectFile { Project = DeserializeImport(importFormat, stream, filePath) };
             return true;
         }
         catch (Exception e)
@@ -260,6 +264,11 @@ internal static class FormatsManager
             return false;
         }
     }
+
+    static ProjectInfo DeserializeImport(IImportFormat format, Stream stream, string sourceFilePath)
+        => format is ISourceFileImportFormat sourceFileFormat
+            ? sourceFileFormat.Deserialize(stream, sourceFilePath)
+            : format.Deserialize(stream);
 
     // native-aware 保存：把宿主私有的 editor/export 元数据随 musical 工程一并写出。exporter 实现
     // INativeProjectFormat（native .tlp/.tlpx）时走 native 路径；否则（foreign）委托到 musical
@@ -447,4 +456,9 @@ internal static class FormatsManager
 
     // 全部 format 条目（按注册序）；一个条目在 mFormats 里对应它每个后缀的一个 FormatProvider。
     static readonly List<FormatEntry> mEntries = new();
+}
+
+internal interface ISourceFileImportFormat
+{
+    ProjectInfo Deserialize(Stream stream, string sourceFilePath);
 }

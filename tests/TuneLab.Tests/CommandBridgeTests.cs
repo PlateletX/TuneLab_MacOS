@@ -25,7 +25,7 @@ public class CommandBridgeTests
     // 一对连起来的命名管道（名字随机，避免并行测试互撞）。
     static async Task<(NamedPipeServerStream Server, NamedPipeClientStream Client)> PairAsync()
     {
-        var name = "TuneLab.Test." + Guid.NewGuid().ToString("N");
+        var name = "tl." + Guid.NewGuid().ToString("N");
         var server = new NamedPipeServerStream(name, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         var client = new NamedPipeClientStream(".", name, PipeDirection.InOut, PipeOptions.Asynchronous);
         var accept = server.WaitForConnectionAsync();

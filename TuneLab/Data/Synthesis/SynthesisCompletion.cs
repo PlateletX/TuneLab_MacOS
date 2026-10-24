@@ -48,14 +48,14 @@ internal static class SynthesisCompletion
                     continue;
 
                 // 在飞数先记账，再谈范围：范围外的活儿照样占着全局闸门的名额。
-                bool isBusy = pipeline.IsBusy;
-                if (isBusy)
+                bool voiceBusy = pipeline.IsBusy;
+                if (voiceBusy)
                     inFlight++;
 
                 if (!scope.Covers(track, part))
                     continue;
 
-                if (isBusy)
+                if (pipeline.HasOutstandingWork)
                 {
                     busy++;
                     continue;

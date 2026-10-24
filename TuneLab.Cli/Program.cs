@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using TuneLab.Bridge;
 using TuneLab.Commands;
 using TuneLab.Headless;
+using TuneLab.Utils;
 
 namespace TuneLab.Cli;
 
@@ -30,6 +31,8 @@ internal static class Program
 
     static async Task<int> Main(string[] args)
     {
+        MacOSNativeLibraryResolver.Register();
+
         // 结果里有中文（扩展名、手册正文、脚本输出）。Windows 控制台默认还是本地代码页，不改这一下
         // 就会把它们打成乱码——而那是【结果本身】看起来出了问题，不是显示问题，最容易误导人。
         try { Console.OutputEncoding = System.Text.Encoding.UTF8; } catch (Exception) { /* 重定向/无控制台时不必强求 */ }

@@ -149,7 +149,7 @@ public class SetupUninstallTests : IDisposable
     // 把 TuneLab.Setup.* 单独复制到一个空目录，跑 -help（不碰注册表、不碰文件），起得来就算过。
     // 它覆盖的是 Main 这一层；卸载路径再往下（SilentRunner.Run → Uninstaller）只依赖 Core，
     // 那几个类不引 Avalonia。
-    [Fact]
+    [WindowsOnlyFact]
     public void TheUninstallerRunsWithNothingButItsOwnFilesBesideIt()
     {
         var exeInTestOutput = Path.Combine(AppContext.BaseDirectory, "TuneLab.Setup.exe");
@@ -174,5 +174,14 @@ public class SetupUninstallTests : IDisposable
         // 免得只看到一个退出码还要再查一遍。
         Assert.True(process.ExitCode == 0, $"exit {process.ExitCode}; stderr: {error}");
         Assert.Contains("TuneLab installer.", output);
+    }
+}
+
+sealed class WindowsOnlyFactAttribute : FactAttribute
+{
+    public WindowsOnlyFactAttribute()
+    {
+        if (!OperatingSystem.IsWindows())
+            Skip = "This test launches the Windows installer executable.";
     }
 }

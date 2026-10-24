@@ -13,9 +13,27 @@ namespace TuneLab.Extensions.Effect;
 // 未注册 / Init 失败的类型由调用方按 passthrough 优雅降级。
 internal static class EffectManager
 {
-    // 内建无 effect 引擎；effect 全部由外置插件经 manifest 提供。保留方法以对齐各 manager 加载入口。
+    // 内建 effect engines 由宿主显式注册；第三方 engines 由扩展 manifest 提供。
     public static void LoadBuiltIn()
     {
+        if (!OperatingSystem.IsMacOS())
+            return;
+
+        try
+        {
+            foreach (var component in Vst3EffectEngine.Enumerate())
+            {
+                var engine = new Vst3EffectEngine(component);
+                string displayName = string.IsNullOrWhiteSpace(component.Vendor)
+                    ? component.Name
+                    : $"{component.Name} ({component.Vendor})";
+                RegisterEngine(ExtensionManager.BuiltInPackageId, engine.Type, displayName, engine);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Could not enumerate VST3 effects: {ex}");
+        }
     }
 
     public static void Destroy()

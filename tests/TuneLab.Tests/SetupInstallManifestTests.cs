@@ -70,7 +70,7 @@ public class SetupInstallManifestTests
 
     // 清单只能描述安装目录之内的文件。越界的条目在删除时本来也匹配不上（要删哪些是清单与"枚举安装
     // 目录得到的相对路径"的交集），这里在格式层面再挡一道。
-    [Fact]
+    [WindowsOnlyFact]
     public void EntriesThatPointOutsideTheFolderAreDropped()
     {
         var parsed = InstallManifest.Parse(
@@ -136,7 +136,7 @@ public class SetupInstallManifestTests
 
     // 旧安装器装的那一份没有账。它当初的行为就是整目录删，只在"目录名就是产品名"时才照做——那种目录
     // 是安装器自己造出来的；用户随手指的目录不猜。
-    [Fact]
+    [WindowsOnlyFact]
     public void WithoutAManifestOnlyAFolderTheInstallerWouldHaveMadeMayGo()
     {
         Assert.True(InstallManifest.MayDeleteWholeDirectoryWithoutManifest(@"C:\Users\me\AppData\Local\Programs\TuneLab"));

@@ -25,6 +25,7 @@ internal interface ISynthesisPipeline : IDisposable
     event Action? PitchChanged;
 
     bool IsBusy { get; }
+    bool HasOutstandingWork { get; }
 
     IReadOnlyList<SynthesizedSegment> SynthesizedSegments { get; }
     IReadOnlyList<IReadOnlyList<Point>> SynthesizedPitch { get; }

@@ -24,6 +24,7 @@ internal sealed class InstrumentSynthesisPipeline : ISynthesisPipeline
 #pragma warning restore CS0067
 
     public bool IsBusy => mIsBusy;
+    public bool HasOutstandingWork => mIsBusy || mEffectGraph.HasOutstandingWork;
 
     public IReadOnlyList<SynthesizedSegment> SynthesizedSegments => mEffectGraph.SynthesizedSegments;
     // instrument 无合成音高回显：保持统一面，恒空（绘制端无需分支）。

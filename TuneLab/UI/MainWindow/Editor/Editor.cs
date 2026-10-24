@@ -36,7 +36,6 @@ using TuneLab.Configs;
 using TuneLab.Scripting;
 using Splat;
 using System.Reactive.Joins;
-using System.Runtime.InteropServices;
 
 using TuneLab.Extensions.Formats;
 using TuneLab.Extensions.Formats.TLP;
@@ -1161,8 +1160,8 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
         var file = await topLevel.SaveFilePickerTracked(new FilePickerSaveOptions
         {
             Title = "Save File".Tr(TC.Dialog),
-            DefaultExtension = "." + ConstantDefine.DefaultProjectExtension,
-            SuggestedFileName = Path.GetFileNameWithoutExtension(mDocument.Name),
+            DefaultExtension = ConstantDefine.DefaultProjectExtension,
+            SuggestedFileName = Path.GetFileNameWithoutExtension(mDocument.Name) + "." + ConstantDefine.DefaultProjectExtension,
             ShowOverwritePrompt = true,
             FileTypeChoices = [new("TuneLab Project".Tr(TC.Dialog)) { Patterns = ["*." + ConstantDefine.DefaultProjectExtension] }]
         });
@@ -1223,13 +1222,17 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
         if (mDocument.Project == null)
             return "no project is open";
 
+        var format = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
+        if (format != ConstantDefine.DefaultProjectExtension && format != "tlp")
+            return "unsupported project file extension";
+
         var file = new NativeProjectFile
         {
             Project = mDocument.Project.GetInfo(),
             Editor = new EditorInfo { PlayheadPos = Playhead.Pos },
             Export = mDocument.Project.GetExportConfig(),
         };
-        if (!FormatsManager.SerializeNative(file, ConstantDefine.DefaultProjectExtension, out var stream, out var error))
+        if (!FormatsManager.SerializeNative(file, format, out var stream, out var error))
         {
             Log.Error("Save file error: " + error);
             return error;
@@ -1291,6 +1294,9 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
         if (path == null)
             return;
 
+        if (Project is not { } project || !await WaitForAudioPartsAsync(project) || !ReferenceEquals(Project, project))
+            return;
+
         try
         {
             AudioEngine.ExportMaster(path, true);
@@ -1303,7 +1309,10 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
 
     async void OnExportRequested(ExportOptions options)
     {
-        if (Project == null)
+        if (Project is not { } project)
+            return;
+
+        if (!await WaitForAudioPartsAsync(project) || !ReferenceEquals(Project, project))
             return;
 
         // 导出范围窗口：全曲 → 无边界；选区 → 编排区范围选区的 tick 区间转时间钳制。
@@ -1317,8 +1326,8 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
                 return;
             }
 
-            startTime = Project.TempoManager.GetTime(selection.StartTick);
-            endTime = Project.TempoManager.GetTime(selection.EndTick);
+            startTime = project.TempoManager.GetTime(selection.StartTick);
+            endTime = project.TempoManager.GetTime(selection.EndTick);
         }
 
         // Create export progress dialog with progress bar
@@ -1327,7 +1336,6 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
         exportDialog.SetMessage("Exporting...".Tr(TC.Dialog));
         exportDialog.SetProgress(0);
 
-        var project = Project;
         var totalTracks = options.SelectedTracks.Count;
         string? errorMessage = null;
 
@@ -1404,6 +1412,29 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
         {
             await this.ShowMessage("Export".Tr(TC.Dialog), "Export completed successfully.".Tr(TC.Dialog));
         }
+    }
+
+    async Task<bool> WaitForAudioPartsAsync(Project project)
+    {
+        var audioParts = project.Tracks.SelectMany(track => track.Parts).OfType<AudioPart>().ToArray();
+        try
+        {
+            await Task.WhenAll(audioParts.Select(part => part.WaitForLoadAsync())).WaitAsync(TimeSpan.FromMinutes(5));
+        }
+        catch (Exception ex)
+        {
+            await this.ShowMessage("Error".Tr(TC.Dialog), "Export failed: \n".Tr(TC.Dialog) + ex.Message);
+            return false;
+        }
+
+        var unlinked = audioParts.FirstOrDefault(part => part.Status.Value != AudioPartStatus.Linked);
+        if (unlinked != null)
+        {
+            await this.ShowMessage("Error".Tr(TC.Dialog),
+                string.Format("Audio file could not be loaded: {0}".Tr(TC.Dialog), unlinked.Path.Value));
+            return false;
+        }
+        return true;
     }
 
     public void Undo()
@@ -1578,8 +1609,7 @@ internal class Editor : DockPanel, PianoWindow.IDependency, TrackWindow.IDepende
         {
             List<string> args = ["-restart"];
             args.AddRange(installedExtension);
-            string installer = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "ExtensionInstaller.exe" : "ExtensionInstaller";
-            ProcessHelper.CreateProcess(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, installer), args);
+            ProcessHelper.CreateProcess(PathManager.ExtensionInstallerPath, args);
             this.Window().Close();
         };
         dialog.AddButton("No".Tr(TC.Dialog), ButtonType.Primary);

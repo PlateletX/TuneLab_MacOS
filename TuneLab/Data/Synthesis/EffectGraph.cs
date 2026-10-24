@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TuneLab.Audio;
@@ -55,6 +56,10 @@ internal sealed class EffectGraph : IDisposable
 
     // 仍有在飞 Process（用于管线延迟销毁：voice/effect 都归后才销毁会话与图）。
     public bool IsBusy => mRunningCount > 0;
+
+    // Awaiters must include effects that are waiting for an available global effect slot.
+    public bool HasOutstandingWork => IsBusy || mNodes.Values.Any(node =>
+        !node.Removed && node.Pending && node.Input.CommitVersion > 0 && node.Input.SampleCount > 0);
 
     // 把 effect 侧的状态带图层按 z 序追加进 output（数据线程；画家算法——底层在前，管线再拼 voice 声称）：
     //   ① 声称完成（Claimed，软绿垫底）：活动会话自报的 Synthesized 段（非最终，会被事实覆盖）；
@@ -974,7 +979,7 @@ internal sealed class EffectGraph : IDisposable
     // —— IEffectSynthesisContext 宿主实现：绑定「该 effect × 一个上游段」、随节点死。
     //    失效判定权在此落地：作用域信号（参数 settled 变更 / 自动化变更区间与本段相交）经批量收口
     //    汇到 DirtySink（→ 图标 Pending 并调度）；颗粒事件照发给插件，仅作缓存提示。——
-    sealed class EffectContext : IEffectSynthesisContext, IDisposable
+    sealed class EffectContext : IEffectSynthesisContext, IExplicitEffectSynthesisContext, IDisposable
     {
         public EffectContext(MidiPart part, IEffect effect, UpstreamSegment input)
         {
@@ -1004,6 +1009,11 @@ internal sealed class EffectGraph : IDisposable
         public IEffectSynthesisAudio Input => mInput;
 
         public IReadOnlyNotifiablePropertyObject Properties => mProperties;
+
+        public bool HasExplicitProperty(string key) => mEffect.Properties.ContainsKey(key);
+
+        public bool HasExplicitAutomation(string key)
+            => mEffect.Automations.ContainsKey(key) || mEffect.PiecewiseAutomations.ContainsKey(key);
 
         // 已声明连续 automation 轨只读 map：轨集 = effect 声明的 AutomationConfigs 中非分段者；
         // 代理按 key 缓存、缺则补建；每次读重建 map 以反映当前声明集。

@@ -83,6 +83,19 @@ internal class SDLPlaybackData
 
     public void Start()
     {
+        // A device can disappear between the settings check and the start call.
+        // Do not create a producer with a null buffer or an invalid SDL device.
+        if (devId == 0 || pcm_buffer == null || pcm_buffer.Length == 0)
+        {
+            SetState(PlaybackState.Stopped);
+            return;
+        }
+
+        if (producer != null && producer.IsAlive)
+        {
+            return;
+        }
+
         SetState(PlaybackState.Playing);
 
         // 初始化控制块
@@ -97,12 +110,26 @@ internal class SDLPlaybackData
 
     public void Stop()
     {
+        var currentProducer = producer;
+        if (currentProducer == null)
+        {
+            SetState(PlaybackState.Stopped);
+            return;
+        }
+
         // 结束生产者线程
         NotifyStop();
 
         // 等待结束
-        producer.Join();
-        producer = null;
+        if (!ReferenceEquals(Thread.CurrentThread, currentProducer))
+        {
+            currentProducer.Join();
+        }
+
+        if (ReferenceEquals(producer, currentProducer))
+        {
+            producer = null;
+        }
 
         SetState(PlaybackState.Stopped);
     }
@@ -272,6 +299,14 @@ internal class SDLPlaybackData
     // 生产者
     private void AudioLoop()
     {
+        if (pcm_buffer == null || pcm_buffer.Length == 0 || devId == 0)
+        {
+            if (ReferenceEquals(producer, Thread.CurrentThread))
+                producer = null;
+            SetState(PlaybackState.Stopped);
+            return;
+        }
+
         // 固定缓冲区
         var gch = GCHandle.Alloc(pcm_buffer, GCHandleType.Pinned);
 
@@ -283,88 +318,119 @@ internal class SDLPlaybackData
 
         // 外层循环
         bool devicesChanged = false;
-        while (true)
+        bool deviceRemoved = false;
+        try
         {
-            bool over = false;
-
-            // 不停地获取事件
-            while (SDL.SDL_PollEvent(out var e) > 0)
+            while (true)
             {
-                switch ((int)e.type)
+                bool over = false;
+
+                // 不停地获取事件
+                while (SDL.SDL_PollEvent(out var e) > 0)
                 {
-                    // 缓存用完
-                    case (int)SDLGlobal.UserEvent.SDL_EVENT_BUFFER_END:
+                    switch ((int)e.type)
                     {
-                        // 上锁
-                        mutex.WaitOne();
-
-                        // 从文件中读取数据，剩下的就交给音频设备去完成了
-                        // 它播放完一段数据后会执行回调函数，获取等多的数据
-                        int samples = onBufferEnd(pcm_buffer, 0, spec.samples * spec.channels);
-                        if (samples <= 0)
+                        // 缓存用完
+                        case (int)SDLGlobal.UserEvent.SDL_EVENT_BUFFER_END:
                         {
-                            // 播放完毕
+                            // 上锁
+                            mutex.WaitOne();
+                            try
+                            {
+                                // 从文件中读取数据，剩下的就交给音频设备去完成了
+                                // 它播放完一段数据后会执行回调函数，获取等多的数据
+                                int samples = onBufferEnd(pcm_buffer, 0, spec.samples * spec.channels);
+                                if (samples <= 0)
+                                {
+                                    // 播放完毕
+                                    over = true;
+                                }
+                                else
+                                {
+                                    // 重置缓冲区
+                                    scb.audio_chunk = Marshal.UnsafeAddrOfPinnedArrayElement(pcm_buffer, 0);
+                                    scb.audio_len = samples * sizeof(float); // 长度为读出数据长度，在read_audio_data中做减法
+                                    scb.audio_pos = 0; // 设置当前位置为缓冲区头部
+                                }
+                            }
+                            finally
+                            {
+                                mutex.ReleaseMutex();
+                            }
+                            break;
+                        }
+
+                        // 停止命令
+                        case (int)SDLGlobal.UserEvent.SDL_EVENT_MANUAL_STOP:
+                        {
                             over = true;
+                            break;
                         }
-                        else
+
+                        // 音频设备插入
+                        case (int)SDL.SDL_EventType.SDL_AUDIODEVICEADDED:
                         {
-                            // 重置缓冲区
-                            scb.audio_chunk = Marshal.UnsafeAddrOfPinnedArrayElement(pcm_buffer, 0);
-                            scb.audio_len = samples * sizeof(float); // 长度为读出数据长度，在read_audio_data中做减法
-                            scb.audio_pos = 0; // 设置当前位置为缓冲区头部
+                            devicesChanged = true;
+                            break;
                         }
 
-                        // 放锁
-                        mutex.ReleaseMutex();
-                        break;
-                    }
-
-                    // 停止命令
-                    case (int)SDLGlobal.UserEvent.SDL_EVENT_MANUAL_STOP:
-                    {
-                        over = true;
-                        break;
-                    }
-
-                    // 音频设备插入
-                    case (int)SDL.SDL_EventType.SDL_AUDIODEVICEADDED:
-                    {
-                        devicesChanged = true;
-                        break;
-                    }
-
-                    // 音频设备移除
-                    case (int)SDL.SDL_EventType.SDL_AUDIODEVICEREMOVED:
-                    {
-                        var dev = e.adevice.which;
-                        if (dev == devId)
+                        // 音频设备移除
+                        case (int)SDL.SDL_EventType.SDL_AUDIODEVICEREMOVED:
                         {
-                            SetDevice(SDLGlobal.PLAYBACK_EMPTY_DEVICE);
-                            over = true;
+                            var dev = e.adevice.which;
+                            if (dev == devId)
+                            {
+                                // 这里运行在 producer 自己的线程，不能调用 SetDevice/Stop：
+                                // Stop 会 Join 当前线程并永久死锁。把关闭动作延后到 finally。
+                                deviceRemoved = true;
+                                over = true;
+                            }
+                            devicesChanged = true;
+                            break;
                         }
-                        devicesChanged = true;
-                        break;
                     }
                 }
-            }
 
-            if (over)
-            {
-                break;
-            }
+                if (over)
+                    break;
 
-            if (devicesChanged)
-            {
-                onDevicesUpdated?.Invoke();
-            }
+                if (devicesChanged)
+                {
+                    devicesChanged = false;
+                    onDevicesUpdated?.Invoke();
+                }
 
-            SDL.SDL_Delay(SDLGlobal.PLAYBACK_POLL_INTERVAL);
+                SDL.SDL_Delay(SDLGlobal.PLAYBACK_POLL_INTERVAL);
+            }
         }
+        finally
+        {
+            string? removedDeviceName = null;
 
-        // 设置暂停标识位
-        SDL.SDL_PauseAudioDevice(devId, 1);
+            // 设置暂停标识位
+            if (devId > 0)
+                SDL.SDL_PauseAudioDevice(devId, 1);
 
-        // 解除固定缓冲区
-        gch.Free();
+            if (deviceRemoved && devId > 0)
+            {
+                removedDeviceName = devName;
+                SDL.SDL_CloseAudioDevice(devId);
+                devId = 0;
+                devName = SDLGlobal.PLAYBACK_EMPTY_DEVICE;
+            }
+
+            // 解除固定缓冲区
+            gch.Free();
+            if (ReferenceEquals(producer, Thread.CurrentThread))
+                producer = null;
+            SetState(PlaybackState.Stopped);
+
+            // 所有线程状态都已清理后再通知 UI；否则 UI 可能在旧 producer 仍存活时尝试重启，
+            // 被 Start 的并发保护误判成“已经在播放”。
+            if (removedDeviceName != null && removedDeviceName != devName)
+                onDevChanged?.Invoke(devName, removedDeviceName);
+            if (deviceRemoved && devicesChanged)
+                onDevicesUpdated?.Invoke();
+        }
     }
 }

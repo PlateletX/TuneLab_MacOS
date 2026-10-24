@@ -21,7 +21,7 @@ jobs:
           - runtime: "win-x64"
             os: "windows-latest"
           - runtime: "osx-arm64"
-            os: "macos-latest"
+            os: "macos-26"
           - runtime: "linux-x64"
             os: "ubuntu-latest"
 
@@ -41,10 +41,41 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
-    - name: Build the application
-      run: dotnet publish --configuration Release -r ${{ matrix.runtime }}
+    - name: Test the application on Windows
+      if: matrix.runtime == 'win-x64'
+      run: |
+        dotnet test tests/TuneLab.Tests/TuneLab.Tests.csproj --configuration Release
+        dotnet test legacy/compat/TuneLab.Hosting.Compat.Legacy.Tests/TuneLab.Hosting.Compat.Legacy.Tests.csproj --configuration Release
+
+    - name: Test the application on macOS
+      if: matrix.runtime == 'osx-arm64'
+      run: |
+        dotnet test tests/TuneLab.Tests/TuneLab.Tests.csproj --configuration Release --filter "FullyQualifiedName!~SetupCliOptionsTests&FullyQualifiedName!~SetupInstallManifestTests&FullyQualifiedName!~SetupUninstallTests"
+        dotnet test legacy/compat/TuneLab.Hosting.Compat.Legacy.Tests/TuneLab.Hosting.Compat.Legacy.Tests.csproj --configuration Release
+
+    - name: Check out the VST3 SDK
+      if: matrix.runtime == 'osx-arm64'
+      run: git clone --depth 1 --branch v3.8.1_build_84 --recurse-submodules https://github.com/steinbergmedia/vst3sdk.git "$RUNNER_TEMP/vst3sdk"
+
+    - name: Build the application (Windows and Linux)
+      if: matrix.runtime != 'osx-arm64'
+      run: dotnet publish TuneLab/TuneLab.csproj --configuration Release -r ${{ matrix.runtime }} --self-contained false
+
+    # Publish macOS as an .app bundle, with the GUI apphost in Contents/MacOS and
+    # the independent CLI and extension installer outputs in Contents/Helpers.
+    - name: Build and package the macOS application
+      if: matrix.runtime == 'osx-arm64'
+      shell: bash
+      run: |
+        [[ "$(uname -m)" == arm64 ]] || { echo "macOS arm64 runner required" >&2; exit 1; }
+        export TUNELAB_MACOS_MIN_VERSION=26.0
+        brew install --build-from-source mpg123 lame
+        MACOS_LAME_DYLIB="$(brew --prefix lame)/lib/libmp3lame.dylib" \
+          VST3_SDK_ROOT="$RUNNER_TEMP/vst3sdk" \
+          bash CIUtils/package-macos.sh --configuration Release --runtime osx-arm64 --output-dir workspace
 
     - name: Move artifacts
+      if: matrix.runtime != 'osx-arm64'
       shell: pwsh
       working-directory: ${{github.workspace}}
       run: Move-Item -Path "TuneLab\bin\Release\net8.0\${{ matrix.runtime }}\publish" -Destination "workspace\"
@@ -52,6 +83,7 @@ jobs:
     # 命令行与主程序同目录发布：外部工具与 agent 靠它驱动 TuneLab，不随包发就等于没有。
     # 单独发布一次（而不是指望上一步的解决方案发布把它摆在哪儿），故这条路径是确定的。
     - name: Publish the command line into artifacts
+      if: matrix.runtime != 'osx-arm64'
       shell: pwsh
       working-directory: ${{github.workspace}}
       run: |
@@ -59,6 +91,7 @@ jobs:
         Copy-Item "TuneLab.Cli/bin/Release/net8.0/${{ matrix.runtime }}/publish/*" -Destination "workspace/" -Recurse -Force
 
     - name: Copy license to artifacts path
+      if: matrix.runtime != 'osx-arm64'
       shell: pwsh
       working-directory: ${{github.workspace}}
       run: Copy-Item "LICENSE.txt" -Destination "workspace\"
@@ -69,8 +102,14 @@ jobs:
       with:
         subject-path: '"workspace/*.dll","workspace/*.exe"'
     
-    - name: Find executable and dynamic library files - MacOS and Linux
-      if: runner.os != 'Windows' && github.event_name != 'pull_request'
+    - name: Attest macOS application archive
+      if: matrix.runtime == 'osx-arm64' && github.event_name != 'pull_request'
+      uses: actions/attest-build-provenance@v1
+      with:
+        subject-path: 'workspace/*.zip'
+
+    - name: Find executable and dynamic library files - Linux
+      if: matrix.runtime == 'linux-x64' && github.event_name != 'pull_request'
       id: find-executable-files
       shell: bash
       working-directory: ${{github.workspace}}
@@ -80,8 +119,8 @@ jobs:
         echo "Found executable and dynamic library files: $EXEC_FILES"
         echo "exec_files=$EXEC_FILES" >> $GITHUB_OUTPUT
 
-    - name: Generate artifact attestation - MacOS and Linux
-      if: runner.os != 'Windows' && github.event_name != 'pull_request'
+    - name: Generate artifact attestation - Linux
+      if: matrix.runtime == 'linux-x64' && github.event_name != 'pull_request'
       uses: actions/attest-build-provenance@v1
       with:
         subject-path: '"workspace/*.dll",${{ steps.find-executable-files.outputs.exec_files }}'

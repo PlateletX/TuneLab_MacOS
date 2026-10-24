@@ -128,7 +128,7 @@ jobs:
             - runtime: "win-x64"
               os: "windows-latest"
             - runtime: "osx-arm64"
-              os: "macos-latest"
+              os: "macos-26"
             - runtime: "linux-x64"
               os: "ubuntu-latest"
 
@@ -154,7 +154,7 @@ jobs:
           run: Compress-Archive -Path .\* -DestinationPath package.zip
           
         - name: Package - MacOS and Linux
-          if: runner.os != 'Windows'
+          if: matrix.runtime == 'linux-x64'
           shell: bash
           working-directory: ${{github.workspace}}
           run: tar -zcvf package.tar.gz ./*
@@ -169,10 +169,25 @@ jobs:
             asset_path: ./package.zip
             asset_name: TuneLab-${{ matrix.runtime }}-${{ github.ref_name }}.zip
             asset_content_type: application/zip
+
+        # macOS build-artifacts already contains a metadata-preserving ZIP of the
+        # .app bundle. The first release targets Apple Silicon and is not yet
+        # signed/notarized; signing and DMG distribution are a later milestone.
+        - name: Upload - macOS app bundle
+          if: matrix.runtime == 'osx-arm64'
+          uses: actions/upload-release-asset@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          with:
+            upload_url: ${{ needs.create-release.outputs.upload_url }}
+            asset_path: ./TuneLab-osx-arm64-${{ github.ref_name }}.zip
+            asset_name: TuneLab-osx-arm64-${{ github.ref_name }}.zip
+            asset_content_type: application/zip
     
-        # 因为还没有解决跨平台的问题所以这个先关掉掉，等跨平台完成了就可以去掉执行条件里的 false 一并发布 linux 和 osx 的版本了
-        - name: Upload - MacOS and Linux
-          if: runner.os != 'Windows' && false
+        # Linux release distribution remains disabled until its packaging and
+        # platform support have their own release gate.
+        - name: Upload - Linux
+          if: matrix.runtime == 'linux-x64' && false
           uses: actions/upload-release-asset@v1
           env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

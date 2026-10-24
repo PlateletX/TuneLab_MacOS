@@ -107,7 +107,8 @@ public class ProjectExportAudioCommandTests
     public void AMissingFolderIsReportedWithoutBotheringAnyone()
     {
         var policy = new RecordingPolicy();
-        var result = Run(Json(@"C:\no\such\folder\mix.wav"), SampleProject(), policy);
+        var missingPath = Path.Combine(Path.GetTempPath(), "TuneLab.Missing." + Guid.NewGuid().ToString("N"), "mix.wav");
+        var result = Run(Json(missingPath), SampleProject(), policy);
 
         Assert.Equal("missing_folder", result.Error!.Value.Code);
         Assert.Null(policy.Asked);
