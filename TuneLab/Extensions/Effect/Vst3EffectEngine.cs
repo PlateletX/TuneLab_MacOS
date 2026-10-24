@@ -82,6 +82,13 @@ internal sealed class Vst3EffectEngine : IEffectSynthesisEngine
     public IReadOnlyOrderedMap<PropertyKey, AutomationConfig> GetSynthesizedParameterConfigs(IEffectSynthesisPropertyContext context)
         => EmptyAutomationConfigs;
 
+    internal static double ReadParameterValue(IReadOnlyNotifiablePropertyObject properties, string key, double defaultValue)
+    {
+        // Property objects return the fallback when its type differs from the stored value.
+        PropertyValue raw = properties.GetValue(key, PropertyValue.Create(defaultValue));
+        return raw.ToDouble(out double value) ? Math.Clamp(value, 0.0, 1.0) : defaultValue;
+    }
+
     public void Init() => EnsureMetadata();
     public void Destroy() { }
 
@@ -219,10 +226,7 @@ internal sealed class Vst3EffectEngine : IEffectSynthesisEngine
                     continue;
                 }
 
-                PropertyValue raw = mContext.Properties.GetValue(parameter.Key, PropertyValue.Null);
-                mValues[parameterIndex] = raw.ToDouble(out double value)
-                    ? Math.Clamp(value, 0.0, 1.0)
-                    : parameter.DefaultValue;
+                mValues[parameterIndex] = ReadParameterValue(mContext.Properties, parameter.Key, parameter.DefaultValue);
                 var values = new double[(sampleCount + AutomationBlockFrames - 1) / AutomationBlockFrames];
                 if (hasAutomation &&
                     mContext.Automations.TryGetValue(parameter.Key, out var automation) && values.Length > 0)
