@@ -69,6 +69,10 @@ jobs:
       run: |
         [[ "$(uname -m)" == arm64 ]] || { echo "macOS arm64 runner required" >&2; exit 1; }
         export TUNELAB_MACOS_MIN_VERSION=26.0
+        # Homebrew otherwise links against the runner's current SDK target
+        # (for example macOS 27), which would make the bundled codec unusable
+        # on the macOS 26 minimum declared by the app bundle.
+        export MACOSX_DEPLOYMENT_TARGET="$TUNELAB_MACOS_MIN_VERSION"
         brew install --build-from-source mpg123 lame
         MACOS_LAME_DYLIB="$(brew --prefix lame)/lib/libmp3lame.dylib" \
           VST3_SDK_ROOT="$RUNNER_TEMP/vst3sdk" \
