@@ -155,6 +155,18 @@ internal class AudioPart : Part, IAudioPart
         }
         int samplingRate = AudioEngine.SampleRate.Value;
 
+        // A project may carry an audio reference from another machine (for
+        // example a Windows drive path inside a VSQX opened on macOS). Keep the
+        // original reference for relinking, but do not pass a missing path to
+        // the decoder: on Unix a string such as `I:\\Music\\guide.wav` is
+        // treated as a relative filename and produces a misleading path under
+        // the current directory.
+        if (!File.Exists(path))
+        {
+            Status.Value = AudioPartStatus.Unlinked;
+            return;
+        }
+
         IAudioData? audioData = null;
         Waveform[]? waveforms = null;
 
