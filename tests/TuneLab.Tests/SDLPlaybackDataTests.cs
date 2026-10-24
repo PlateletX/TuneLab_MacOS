@@ -29,29 +29,35 @@ public class SDLPlaybackDataTests
     [Fact]
     public void FailedDeviceSwitchKeepsTheActiveDeviceValid()
     {
-        var originalDriver = Environment.GetEnvironmentVariable("SDL_AUDIODRIVER");
-        Environment.SetEnvironmentVariable("SDL_AUDIODRIVER", "dummy");
+        SDLHost.InitHost();
+        var playback = new SDLPlaybackData();
+        playback.SetDriver("dummy");
 
-        try
-        {
-            SDLHost.InitHost();
-            var playback = new SDLPlaybackData();
-            playback.SetDevice(string.Empty);
+        playback.SetDevice(string.Empty);
 
-            var activeId = playback.devId;
-            var activeName = playback.devName;
-            Assert.NotEqual(0u, activeId);
+        var activeId = playback.devId;
+        var activeName = playback.devName;
+        Assert.NotEqual(0u, activeId);
 
-            Assert.Throws<System.IO.IOException>(() => playback.SetDevice("missing-audio-device"));
+        Assert.Throws<System.IO.IOException>(() => playback.SetDevice("missing-audio-device"));
 
-            Assert.Equal(activeId, playback.devId);
-            Assert.Equal(activeName, playback.devName);
-            playback.SetDevice(SDLGlobal.PLAYBACK_EMPTY_DEVICE);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("SDL_AUDIODRIVER", originalDriver);
-        }
+        Assert.Equal(activeId, playback.devId);
+        Assert.Equal(activeName, playback.devName);
+        playback.SetDevice(SDLGlobal.PLAYBACK_EMPTY_DEVICE);
+    }
+
+    [Fact]
+    public void FailedDriverSwitchDoesNotLeaveStaleDriverState()
+    {
+        SDLHost.InitHost();
+        var playback = new SDLPlaybackData();
+        playback.SetDriver("dummy");
+
+        Assert.Throws<System.IO.IOException>(() => playback.SetDriver("missing-audio-driver"));
+
+        Assert.Equal(string.Empty, playback.driver);
+        Assert.Equal(0u, playback.devId);
+        Assert.Equal(SDLGlobal.PLAYBACK_EMPTY_DEVICE, playback.devName);
     }
 }
 

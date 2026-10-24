@@ -154,6 +154,7 @@ internal class SDLPlaybackData
 
             // 关闭上一个驱动
             SDL.SDL_AudioQuit();
+            driver = string.Empty;
         }
 
         if (!string.IsNullOrEmpty(drv))
