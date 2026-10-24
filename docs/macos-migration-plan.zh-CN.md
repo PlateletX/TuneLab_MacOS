@@ -6,7 +6,7 @@
 
 **当前判断：** 迁移可行，核心 UI 和数据模型不需要重写。仓库已包含 Avalonia/.NET 8、macOS 平台分支和 `osx-arm64` CI 构建配置；正式发布仍未开放。首发目标已确定为 **macOS 26 及以上、Apple 芯片 arm64、自包含 ZIP 应用包**；暂不支持 Intel Mac，签名、公证和 DMG 留到后续阶段。
 
-**验证状态（2026-10-24）：** 本机 .NET SDK 8.0.426 已将主程序、CLI 和扩展安装工具以 `osx-arm64` 自包含模式发布，三个 apphost 均为 arm64。当前机器为 macOS 27 Apple 芯片，隔离配置选用 `zh-CN` 后，窗口标题、菜单、轨道和编辑区显示简体中文；headless 截图工具另用真实 Avalonia/Skia 渲染了 26 张界面图。当前源码构建通过，主测试为 717 通过/3 跳过，legacy 兼容测试为 13/13。最低版本配置已切换为 macOS 26.0，并已用重新编译的原生依赖生成新的 Apple Silicon ZIP；物理输出设备播放、设备切换、签名公证和 Gatekeeper 首次打开仍未完成。
+**验证状态（2026-10-24）：** 本机 .NET SDK 8.0.426 已将主程序、CLI 和扩展安装工具以 `osx-arm64` 自包含模式发布，三个 apphost 均为 arm64。当前机器为 macOS 27 Apple 芯片，隔离配置选用 `zh-CN` 后，窗口标题、菜单、轨道和编辑区显示简体中文；headless 截图工具另用真实 Avalonia/Skia 渲染了 26 张界面图。当前源码构建通过，主测试为 718 通过/3 跳过，legacy 兼容测试为 13/13。最低版本配置已切换为 macOS 26.0，并已用重新编译的原生依赖生成新的 Apple Silicon ZIP；物理输出设备播放、设备切换、签名公证和 Gatekeeper 首次打开仍未完成。
 
 **历史实机复测：** 2026-10-23 的自包含包位于 `/private/tmp/TuneLab-macos-verify-20261023/final/TuneLab-osx-arm64-v2.1.1.zip`，当时按 macOS 12 目标生成，`zip -T` 通过并成功验证了工程编辑、VSQX 导入/导出和音频导出。该包的原生库最低版本为 macOS 11.0/12.0，不能代表当前 macOS 26+ 首发门槛；新的 26.0 目标包需要重新编译 LAME、VST3 host 并重新验收。歌声片段为 `Empty Voice`，因此旧复测也不代表 VOCALOID4/5/6 歌声合成可用。
 
@@ -180,7 +180,7 @@ dotnet publish ExtensionInstaller/ExtensionInstaller.csproj -c Release -r osx-ar
 ### 工作项
 
 - 在 `build-artifacts` workflow 中维持显式 macOS 打包路径，分别发布主程序、CLI 和扩展安装工具；不要依赖从解决方案根目录发布时的隐式项目选择。
-- macOS runner 运行主测试时排除 Windows 安装器专属用例，并运行 legacy compatibility 测试；2026-10-24 本机主测试为 717 通过/3 跳过，legacy compatibility 测试 13/13 通过。Windows runner 运行未过滤的完整测试集，以覆盖被 Mac 排除的安装器用例；远端 workflow 首次通过后再确认 CI 门槛。
+- macOS runner 运行主测试时排除 Windows 安装器专属用例，并运行 legacy compatibility 测试；2026-10-24 本机主测试为 718 通过/3 跳过，legacy compatibility 测试 13/13 通过。Windows runner 运行未过滤的完整测试集，以覆盖被 Mac 排除的安装器用例；远端 workflow 首次通过后再确认 CI 门槛。
 - 已为 Apple 芯片 ZIP 配置 GitHub release 上传步骤；待 CI 通过后验证资产名称与更新服务识别的 `osx-arm64` 平台名称一致。
 - 编写简体中文 Mac 安装、首次启动、数据目录、扩展兼容和排错说明；README 明确支持的芯片、最低系统版本和已验证的合成引擎。
 - 先发布给小范围测试用户，收集启动、音频设备、工程文件和插件问题，再公开发布。

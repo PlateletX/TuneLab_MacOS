@@ -49,18 +49,50 @@ internal static class MacOSNativeLibraryResolver
         if (bundledName == null)
             return IntPtr.Zero;
 
-        var frameworkFolder = new[]
-        {
-            Path.Combine(PathManager.ExcutableFolder, "..", "Frameworks"),
-            Path.Combine(PathManager.ExcutableFolder, "..", "..", "Frameworks"),
-        }.Select(Path.GetFullPath).FirstOrDefault(Directory.Exists);
-        if (frameworkFolder == null)
-            return IntPtr.Zero;
-
-        var libraryPath = Path.Combine(frameworkFolder, bundledName);
-        if (!File.Exists(libraryPath))
-            throw new DllNotFoundException($"The macOS app bundle is missing its native library: {libraryPath}");
+        var libraryPath = FindLibraryPath(bundledName);
+        if (libraryPath == null)
+            throw new DllNotFoundException($"The macOS native library was not found: {bundledName}");
 
         return NativeLibrary.Load(libraryPath);
+    }
+
+    static string? FindLibraryPath(string libraryName)
+    {
+        var executableFolder = Path.GetFullPath(PathManager.ExcutableFolder);
+        var bundledFolders = new[]
+        {
+            Path.Combine(executableFolder, "..", "Frameworks"),
+            Path.Combine(executableFolder, "..", "..", "Frameworks"),
+            Path.Combine(executableFolder, "Frameworks"),
+        };
+
+        foreach (var folder in bundledFolders.Select(Path.GetFullPath))
+        {
+            var path = Path.Combine(folder, libraryName);
+            if (File.Exists(path))
+                return path;
+        }
+
+        // When running the CLI directly from a source checkout, the native host is
+        // built beside TuneLab rather than copied into the CLI output directory.
+        // Walk a bounded set of parents so this remains useful for local builds
+        // without scanning arbitrary parts of the user's filesystem.
+        var parent = Directory.GetParent(executableFolder);
+        for (var depth = 0; parent != null && depth < 8; depth++, parent = parent.Parent)
+        {
+            var binFolder = Path.Combine(parent.FullName, "TuneLab", "bin");
+            if (!Directory.Exists(binFolder))
+                continue;
+
+            foreach (var frameworkFolder in Directory.EnumerateDirectories(binFolder, "*", SearchOption.TopDirectoryOnly)
+                         .Select(configuration => Path.Combine(configuration, "Frameworks")))
+            {
+                var path = Path.Combine(frameworkFolder, libraryName);
+                if (File.Exists(path))
+                    return path;
+            }
+        }
+
+        return null;
     }
 }
