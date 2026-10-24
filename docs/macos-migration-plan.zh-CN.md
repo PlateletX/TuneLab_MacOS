@@ -23,15 +23,15 @@
 | UI 与运行时 | Avalonia 11、通用 `net8.0` 目标 | 可以沿用现有窗口与编辑器代码 |
 | macOS 原生交互 | 已有 CoreGraphics 鼠标处理、⌘主快捷键、钥匙串存储和 macOS 文件打开分支 | 需要实机验证 Retina、多显示器、权限和输入法行为 |
 | 构建 | 主程序、CLI 和扩展安装工具的 `osx-arm64` 自包含发布已在本机编译通过；CI 使用 `.app`/ZIP 打包脚本 | 仍需 CI 确认真实依赖打包、产物结构和启动结果 |
-| 音频 | 播放通过 ppy.SDL2-CS 随包提供的 SDL2 原生库；Mac MP3 编码直接调用随包的 LAME，其他平台继续使用 NAudio.Lame。包内 SDL2、LAME、mpg123 已用于实际导出 | WAV/MP3/FLAC/OGG 离线导出已在当前 Mac 验证；实体设备播放/切换和 macOS 26+ 发布包仍待验收 |
-| 音频插件 | 首发仅支持 MIDI/合成 part 效果链上的 VST3 效果器；不支持 VST 乐器、AU 或 VST2。当前包扫描到 46 个效果器，含 FabFilter Pro-Q 4 和 Pro-C 3 | Pro-Q 4 已验证发现、实例化、参数读取、MIDI part 挂载、自动化、保存/重开和离线 WAV/MP3 导出；UADx 仅发现并快速失败后 passthrough，物理设备播放仍待验收 |
+| 音频 | 播放通过 ppy.SDL2-CS 随包提供的 SDL2 原生库；Mac MP3 编码直接调用随包的 LAME，其他平台继续使用 NAudio.Lame。设备切换现在先打开目标设备，成功后才关闭当前设备 | WAV/MP3/FLAC/OGG 离线导出已在当前 Mac 验证；SDL dummy 驱动回归测试覆盖切换失败时保留有效设备；实体设备播放/切换仍待实机验收 |
+| 音频插件 | 首发仅支持 MIDI/合成 part 效果链上的 VST3 效果器；不支持 VST 乐器、AU 或 VST2。当前包扫描到 46 个效果器，含 FabFilter Pro-Q 4 和 Pro-C 3 | Pro-Q 4 已验证发现、实例化、参数读取、MIDI part 挂载、自动化、保存/重开和离线 WAV/MP3 导出；2026-10-24 修复并测试已保存参数的读取；UADx 仅发现并快速失败后 passthrough |
 | 扩展 | manifest 可声明 `osx` 或具体平台 | Windows 原生合成引擎和依赖不会自动获得 macOS 兼容性 |
 | 安装与更新 | 已生成实验 ZIP 和 `.app` 文件关联声明；ZIP 内容已核对，包内原生库有 ad hoc 签名，整个应用包签名校验未通过；Developer ID 签名、公证与静默自更新尚未实现 | 仍需从 Finder 安装/双击打开、文件关联和 Gatekeeper 首次启动验收 |
 | 发布 | release workflow 已配置 Apple 芯片 ZIP 上传；Linux 上传仍关闭 | 需等 macOS 构建通过后，在 tag 发布中验证资产命名和下载 |
 
 ## VST3 插件宿主目标
 
-首发范围已锁定为 **仅 MIDI/合成 part 效果链上的 VST3 效果器**；不支持 VST 乐器、VST2 或 AU，也不扩展到音频 part、master bus。当前音频输出由 SDL2 驱动，`AudioGraph` 混合的是轨道上已经生成的音频源；现有 `EffectGraph` 以离线音频段调用 `IEffectSynthesisEngine`。VST3 原生宿主已编译，托管 `Vst3EffectEngine` 已注册到 `EffectManager`；扫描器只登记 `Fx` 且不含 `Instrument` 子类别的类。当前基线可导出非静音 WAV；Pro-Q 4 已验证发现、实例化和导出路径，但部分参数状态仍会静音，参数变化、自动化、旁路、项目保存/重开仍需验收。VST3 原生宿主不是独立插件进程，暂不具备插件崩溃隔离。
+首发范围已锁定为 **仅 MIDI/合成 part 效果链上的 VST3 效果器**；不支持 VST 乐器、VST2 或 AU，也不扩展到音频 part、master bus。当前音频输出由 SDL2 驱动，`AudioGraph` 混合的是轨道上已经生成的音频源；现有 `EffectGraph` 以离线音频段调用 `IEffectSynthesisEngine`。VST3 原生宿主已编译，托管 `Vst3EffectEngine` 已注册到 `EffectManager`；扫描器只登记 `Fx` 且不含 `Instrument` 子类别的类。FabFilter Pro-Q 4 已验证发现、实例化、参数读取、自动化、旁路、项目保存/重开及离线导出；2026-10-24 修复了数字参数默认值类型不匹配导致已保存参数未传入插件的问题，并加入回归测试。VST3 原生宿主不是独立插件进程，暂不具备插件崩溃隔离。
 
 首发挂载点已确认是 TuneLab 现有的 **MIDI/合成 part 级 Effects 链**，由 `EffectGraph` 调度离线处理；不扩展到音频 part 或 master bus。VST3 宿主实现已完成首个可用闭环：原生依赖、参数读取、MIDI part 挂载、自动化、保存/重开和离线导出均已在 FabFilter Pro-Q 4 上验证；插件自带编辑器窗口和原生进程级崩溃隔离仍未实现。通用 VST3 效果器支持本身也不代表 VOCALOID4–6 有可用的 macOS 歌声插件版本；仍需逐版本实测。
 

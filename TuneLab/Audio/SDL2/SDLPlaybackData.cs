@@ -177,6 +177,26 @@ internal class SDLPlaybackData
         var orgId = devId;
         var orgName = devName;
 
+        if (dev == orgName)
+        {
+            return;
+        }
+
+        uint newId = 0;
+        if (dev != SDLGlobal.PLAYBACK_EMPTY_DEVICE)
+        {
+            // Open first so a transient device failure does not invalidate the active device.
+            if ((newId = SDL.SDL_OpenAudioDevice(
+                    string.IsNullOrEmpty(dev) ? null : dev,
+                    0,
+                    ref spec,
+                    out _,
+                    0)) == 0)
+            {
+                throw new IOException($"SDL: failed to open audio device \"{dev}\": {SDL.SDL_GetError()}");
+            }
+        }
+
         if (orgId > 0)
         {
             // 停止播放
@@ -189,23 +209,11 @@ internal class SDLPlaybackData
             SDL.SDL_CloseAudioDevice(orgId);
         }
 
-        if (dev != SDLGlobal.PLAYBACK_EMPTY_DEVICE)
+        devId = newId;
+        devName = dev;
+
+        if (newId > 0)
         {
-            // 打开当前设备
-            uint id;
-            if ((id = SDL.SDL_OpenAudioDevice(
-                    string.IsNullOrEmpty(dev) ? null : dev,
-                    0,
-                    ref spec,
-                    out _,
-                    0)) == 0)
-            {
-                throw new IOException($"SDL: failed to open audio device \"{dev}\": {SDL.SDL_GetError()}");
-            }
-
-            devId = id;
-            devName = dev;
-
             // 初始化临时浮点数组
             var cnt = spec.samples * spec.channels;
             if (cnt == 0)
@@ -217,12 +225,6 @@ internal class SDLPlaybackData
                 pcm_buffer = new float[cnt];
             }
         }
-        else
-        {
-            devId = 0;
-            devName = dev;
-        }
-
         // 通知音频设备已更改
         if (orgName != devName)
         {
