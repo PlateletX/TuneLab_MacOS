@@ -6,7 +6,7 @@
 
 **当前判断：** 迁移可行，核心 UI 和数据模型不需要重写。仓库已包含 Avalonia/.NET 8、macOS 平台分支和 `osx-arm64` CI 构建配置；正式发布仍未开放。首发目标已确定为 **macOS 26 及以上、Apple 芯片 arm64、自包含 ZIP 应用包**；暂不支持 Intel Mac，签名、公证和 DMG 留到后续阶段。
 
-**验证状态（2026-10-24）：** 本机 .NET SDK 8.0.426 已将主程序、CLI 和扩展安装工具以 `osx-arm64` 自包含模式发布，三个 apphost 均为 arm64。当前机器为 macOS 27 Apple 芯片，隔离配置选用 `zh-CN` 后，窗口标题、菜单、轨道和编辑区显示简体中文；headless 截图工具另用真实 Avalonia/Skia 渲染了 26 张界面图。当前源码构建通过，主测试为 714 通过/3 跳过，legacy 兼容测试为 13/13。最低版本配置已切换为 macOS 26.0，并已用重新编译的原生依赖生成新的 Apple Silicon ZIP；物理输出设备播放、设备切换、签名公证和 Gatekeeper 首次打开仍未完成。
+**验证状态（2026-10-24）：** 本机 .NET SDK 8.0.426 已将主程序、CLI 和扩展安装工具以 `osx-arm64` 自包含模式发布，三个 apphost 均为 arm64。当前机器为 macOS 27 Apple 芯片，隔离配置选用 `zh-CN` 后，窗口标题、菜单、轨道和编辑区显示简体中文；headless 截图工具另用真实 Avalonia/Skia 渲染了 26 张界面图。当前源码构建通过，主测试为 717 通过/3 跳过，legacy 兼容测试为 13/13。最低版本配置已切换为 macOS 26.0，并已用重新编译的原生依赖生成新的 Apple Silicon ZIP；物理输出设备播放、设备切换、签名公证和 Gatekeeper 首次打开仍未完成。
 
 **历史实机复测：** 2026-10-23 的自包含包位于 `/private/tmp/TuneLab-macos-verify-20261023/final/TuneLab-osx-arm64-v2.1.1.zip`，当时按 macOS 12 目标生成，`zip -T` 通过并成功验证了工程编辑、VSQX 导入/导出和音频导出。该包的原生库最低版本为 macOS 11.0/12.0，不能代表当前 macOS 26+ 首发门槛；新的 26.0 目标包需要重新编译 LAME、VST3 host 并重新验收。歌声片段为 `Empty Voice`，因此旧复测也不代表 VOCALOID4/5/6 歌声合成可用。
 
@@ -133,13 +133,13 @@ dotnet publish ExtensionInstaller/ExtensionInstaller.csproj -c Release -r osx-ar
 ### 工作项
 
 - 按 VOCALOID4、VOCALOID5、VOCALOID6 分别验证可调用方式、macOS 版本、Apple 芯片架构、授权流程、离线渲染/实时合成能力及原生依赖。用户当前提供的环境信息是 VOCALOID6 桌面版；V4、V5 仍需实际测试环境或可复现的授权测试方式。
-- 先确认 TuneLab 可调用的是官方 SDK/API、用户授权的独立桥接程序，还是需要新增 VST3 插件宿主。通用 VST3 宿主原型已在 Apple 芯片 Mac 编译，并通过真实插件扫描与 FabFilter Pro-Q 4 实例化、参数读取和离线音频处理冒烟；这只证明原生宿主底层链路，不代表已接入桌面效果链，更不代表可直接承载 VOCALOID。若以插件宿主接入 VOCALOID，必须把格式、隔离、安全与 Apple Silicon 兼容性作为独立工程评估。AU 不属于通用效果器首发范围。
+- 先确认 TuneLab 可调用的是官方 SDK/API、用户授权的独立桥接程序，还是需要新增 VST3 插件宿主。通用 VST3 宿主已在 Apple 芯片 Mac 编译，并接入 TuneLab 的 MIDI/合成 part 效果链；FabFilter Pro-Q 4 已完成真实插件扫描、实例化、参数读取、自动化、保存/重开和离线音频处理验收。这只证明效果器宿主链路，不代表可直接承载 VOCALOID。若以插件宿主接入 VOCALOID，必须把格式、隔离、安全与 Apple Silicon 兼容性作为独立工程评估。AU 不属于通用效果器首发范围。
 - 首发宿主范围锁定为 macOS **VST3 效果器**；不包含 VST2、AUv2、AUv3、VST 乐器、音频 part 效果槽或 master bus 效果槽。挂载点沿用 MIDI/合成 part 级 Effects 链。
 - 评估宿主实现前检查依赖许可证、Apple 芯片支持、macOS 26 部署目标、插件参数/编辑器 UI、状态与预设持久化、自动化和崩溃隔离。
 - 用 VST3 样例效果器验证原生加载、离线音频处理、参数读写、插件状态保存/恢复和 Apple 芯片构建，再接入 TuneLab 的效果面板与工程格式。2026-10-23 本机原生冒烟扫描到 50 个效果器类，FabFilter Pro-Q 4 成功实例化、读取 737 个参数并处理 256 帧立体声音频；托管引擎现已注册到 TuneLab 效果系统，最新过滤版扫描到 46 个效果器（含 Pro-Q 4、Pro-C 3，且不含 `Fx|Instrument` 类）。含 Pro-Q 4 的隔离工程已完成合成与非静音 WAV 导出；后续复测又完成了参数变化、自动化、旁路、项目保存/重开恢复以及 WAV/MP3 导出。物理设备播放、插件自带编辑器窗口和进程级崩溃隔离仍未验收。
 - 同日收到的 `vst3host-smoke` 崩溃报告发生于 19:32:13，调用栈显示 UAD Lexicon 224 的 `bundleExit` 在 VST3 模块卸载时释放无效指针。当前扫描器只保留插件元数据，创建效果器时按路径加载目标 bundle，避免把所有第三方模块长期挂在进程内；UAD 重复 Objective-C 类警告仍由插件自身的全局类名造成，不能通过普通 VST3 生命周期管理消除。
 - 旧版扫描器曾在发现效果器时加载非效果器模块，导致 CLI 退出崩溃。当前扫描结果只登记 VST3 `Fx` 类，排除 `Instrument` 子类别；非效果器插件不属于支持或验收目标。FabFilter Pro-Q 4 已完成发现、实例化、参数读取和离线处理；UAD 目前只完成发现，实例化会快速失败并降级，避免第三方授权/UI 初始化阻塞主程序。
-- 已将 VST3 效果器接入现有离线 effect 调度；仍需核对宿主/处理线程生命周期、采样率与块长协商、旁路降级及状态恢复。
+- 已将 VST3 效果器接入现有离线 effect 调度；FabFilter Pro-Q 4 已核对宿主/处理线程生命周期、参数状态恢复、自动化、旁路降级和 WAV/MP3 导出。插件编辑器窗口、进程级崩溃隔离及实体设备播放仍待验收。
 - 以至少一个真实 VST3 效果插件验证扫描、加载、编辑参数、自动化、旁路、保存/恢复和离线导出；FabFilter Pro-Q 4 已完成扫描、实例化、参数读取、MIDI part 挂载、自动化写入、项目保存/重开恢复及 WAV/MP3 导出验收，且导出的 WAV/MP3 文件有效。2026-10-24 复查发现宿主以 Null 作为数字参数读取的默认值，触发属性类型回退，导致工程中已保存的参数没有送入插件；现已改用数字默认值，并以隔离工程重渲染确认处理后的 WAV 与旁路/基线哈希不同，增加了参数读取回归测试。物理设备播放、插件自带编辑器窗口和进程级崩溃隔离仍属于后续门槛；UADx 只完成发现与 passthrough 降级验证。测试矩阵覆盖目标架构与插件失败模式。
 - 将工程互通作为单独能力评估：VOCALOID4 的 VSQX，以及 VOCALOID5/6 的 VPR。收集各版本真实工程样本，分别验证导入、编辑后导出、参数映射和往返损失；真实 Vocaloid 应用打开导出文件的验收仍未完成。
 - 内建 VPR 已实现基础导入和导出：处理 Project/sequence.json 中的轨道、片段、音符、常用控制器、节拍/拍号和基础轨道电平；导入时在片段/音符属性中保留原始 JSON，并在导出编辑后的内容时尽量保留未知字段。当前只有合成 JSON 样本的导入、编辑、导出、再导入测试；需要真实 VOCALOID5/6 .vpr 验证实际文件结构、字段单位、往返损失，并用对应 Vocaloid 应用尝试打开导出文件。
@@ -178,7 +178,7 @@ dotnet publish ExtensionInstaller/ExtensionInstaller.csproj -c Release -r osx-ar
 ### 工作项
 
 - 在 `build-artifacts` workflow 中维持显式 macOS 打包路径，分别发布主程序、CLI 和扩展安装工具；不要依赖从解决方案根目录发布时的隐式项目选择。
-- macOS runner 运行主测试时排除 Windows 安装器专属用例，并运行 legacy compatibility 测试；2026-10-23 本机解决方案构建为零警告、零错误，主测试为 712 通过/3 跳过，legacy compatibility 测试 13/13 通过。Windows runner 运行未过滤的完整测试集，以覆盖被 Mac 排除的安装器用例；远端 workflow 首次通过后再确认 CI 门槛。
+- macOS runner 运行主测试时排除 Windows 安装器专属用例，并运行 legacy compatibility 测试；2026-10-24 本机主测试为 717 通过/3 跳过，legacy compatibility 测试 13/13 通过。Windows runner 运行未过滤的完整测试集，以覆盖被 Mac 排除的安装器用例；远端 workflow 首次通过后再确认 CI 门槛。
 - 已为 Apple 芯片 ZIP 配置 GitHub release 上传步骤；待 CI 通过后验证资产名称与更新服务识别的 `osx-arm64` 平台名称一致。
 - 编写简体中文 Mac 安装、首次启动、数据目录、扩展兼容和排错说明；README 明确支持的芯片、最低系统版本和已验证的合成引擎。
 - 先发布给小范围测试用户，收集启动、音频设备、工程文件和插件问题，再公开发布。
