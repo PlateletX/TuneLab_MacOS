@@ -80,6 +80,21 @@ VST3::Hosting::Module::PathList ModulePaths() {
     return paths;
 }
 
+bool IncludeKnownUnsafeModules() {
+    const char* value = std::getenv("TUNELAB_VST3_INCLUDE_UNSAFE");
+    return value && (std::strcmp(value, "1") == 0 || std::strcmp(value, "true") == 0 ||
+        std::strcmp(value, "yes") == 0);
+}
+
+bool IsKnownUnsafeModulePath(const std::string& path) {
+    // UAD VST3 bundles register the same Objective-C classes in every bundle.
+    // Loading several of them into TuneLab's process produces class collisions,
+    // and some of their components block while initializing without a plugin UI.
+    // Keep them opt-in until the host has process isolation for third-party code.
+    constexpr const char* kUadPrefix = "/uaudio_";
+    return path.find(kUadPrefix) != std::string::npos;
+}
+
 bool ScanPlugins(std::string& error) {
     std::lock_guard<std::mutex> lock(gPluginMutex);
     if (gPluginsScanned)
@@ -87,7 +102,10 @@ bool ScanPlugins(std::string& error) {
     gPluginsScanned = true;
 
     EnsureHost();
+    const bool includeUnsafe = IncludeKnownUnsafeModules();
     for (const auto& path : ModulePaths()) {
+        if (!includeUnsafe && IsKnownUnsafeModulePath(path))
+            continue;
         std::string moduleError;
         auto module = VST3::Hosting::Module::create(path, moduleError);
         if (!module)

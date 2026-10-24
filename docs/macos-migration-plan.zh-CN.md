@@ -1,5 +1,7 @@
 # TuneLab macOS 迁移计划
 
+**当前运行时注记（2026-10-24）：** 为避免 UAD VST3 bundle 在同一进程注册重复 Objective-C 类，最新宿主默认跳过路径名含 `/uaudio_` 的模块；需要专门诊断时可设置 `TUNELAB_VST3_INCLUDE_UNSAFE=1` 恢复扫描。FabFilter 等常规 VST3 效果器仍按默认路径扫描和验证。
+
 **目标：** 在 macOS 上提供可安装、可编辑工程、可播放音频的 TuneLab 版本，并支持 **VST3 效果器**挂载；用户提出的歌声合成目标为 VOCALOID4、VOCALOID5 和 VOCALOID6。三个版本能否在目标 macOS/Apple 芯片环境内直接合成，须逐版验证后才能承诺。首发不包含 VST2、AUv2、AUv3 或乐器插件。
 
 **当前判断：** 迁移可行，核心 UI 和数据模型不需要重写。仓库已包含 Avalonia/.NET 8、macOS 平台分支和 `osx-arm64` CI 构建配置；正式发布仍未开放。首发目标已确定为 **macOS 26 及以上、Apple 芯片 arm64、自包含 ZIP 应用包**；暂不支持 Intel Mac，签名、公证和 DMG 留到后续阶段。
